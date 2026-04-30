@@ -9,23 +9,22 @@ router.post('/register', async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // Check karo user already exist toh nahi karta
+    if (!username || !email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
-    // Password encrypt karo
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // User banao
     const user = new User({ username, email, password: hashedPassword });
     await user.save();
 
     res.status(201).json({ message: 'User registered successfully ✅' });
-
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -34,19 +33,20 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // User dhundo
+    if (!email || !password) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ message: 'User not found' });
     }
 
-    // Password check karo
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ message: 'Wrong password' });
     }
 
-    // Token banao
     const token = jwt.sign(
       { userId: user._id },
       process.env.JWT_SECRET,
@@ -61,9 +61,8 @@ router.post('/login', async (req, res) => {
         email: user.email
       }
     });
-
   } catch (error) {
-    res.status(500).json({ message: 'Server error', error });
+    res.status(500).json({ message: 'Server error' });
   }
 });
 

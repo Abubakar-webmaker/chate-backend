@@ -4,23 +4,28 @@ const socketio = require('socket.io');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const Message = require('./models/Message');
+const User = require('./models/User');
 
 dotenv.config();
 connectDB();
 
 const app = express();
 const server = http.createServer(app);
+
+const allowedOrigins = ['https://chate-frontend.vercel.app', 'http://localhost:3000'];
+
 const io = socketio(server, {
   cors: {
-    origin: ['https://chate-frontend.vercel.app', 'http://localhost:3000'],
-    methods: ['GET', 'POST'],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
   }
 });
 
 app.use(cors({
-  origin: ['https://chate-frontend.vercel.app', 'http://localhost:3000'],
-  methods: ['GET', 'POST'],
+  origin: allowedOrigins,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
 app.use(express.json());
@@ -38,20 +43,15 @@ app.get('/', (req, res) => {
   res.send('Chat App Backend Running ✅');
 });
 
-const Message = require('./models/Message');
-const User = require('./models/User');
-
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // User online mark karo
   socket.on('userOnline', async (userId) => {
     await User.findByIdAndUpdate(userId, { isOnline: true });
     socket.userId = userId;
     io.emit('userStatusChanged', { userId, isOnline: true });
   });
 
-  // One-to-one message
   socket.on('privateMessage', async ({ senderId, receiverId, message }) => {
     const newMessage = new Message({
       sender: senderId,
@@ -69,13 +69,11 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Group chat join
   socket.on('joinRoom', (room) => {
     socket.join(room);
     console.log(`User joined room: ${room}`);
   });
 
-  // Group message
   socket.on('groupMessage', async ({ senderId, room, message }) => {
     const newMessage = new Message({
       sender: senderId,
@@ -93,7 +91,6 @@ io.on('connection', (socket) => {
     });
   });
 
-  // User offline mark karo
   socket.on('disconnect', async () => {
     if (socket.userId) {
       await User.findByIdAndUpdate(socket.userId, { isOnline: false });
